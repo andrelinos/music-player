@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     // O 'ReadableStream' é a forma correta de fazer streaming de grandes arquivos
     return new NextResponse(audioResponse.body, { headers });
-  } catch (error) {
+  } catch (_error) {
     return new NextResponse("Erro no servidor proxy", { status: 500 });
   }
 }

@@ -1,9 +1,12 @@
 /** biome-ignore-all lint/correctness/useExhaustiveDependencies: nois */
-/** biome-ignore-all lint/correctness/useHookAtTopLevel: <explanation> */
-/** biome-ignore-all lint/correctness/noInvalidUseBeforeDeclaration: <explanation> */
+/** biome-ignore-all lint/a11y/useMediaCaption: no captions available */
+/** biome-ignore-all lint/correctness/useHookAtTopLevel: intentional */
+/** biome-ignore-all lint/correctness/noInvalidUseBeforeDeclaration: intentional */
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+// @ts-expect-error: ignoring types for the pre-built browser version
+import * as jsmediatags from "jsmediatags/dist/jsmediatags.min.js";
 import {
   ListMusic,
   Music2,
@@ -15,7 +18,6 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
-  VolumeX,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -57,6 +59,9 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
+  const [extractedCoverUrl, setExtractedCoverUrl] = useState<string | null>(
+    null,
+  );
 
   // --- REFS ---
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -67,14 +72,56 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
   // --- DADOS DERIVADOS ---
   const activePlaylist = isShuffled ? shuffledPlaylist : playlist;
   const currentTrack = activePlaylist?.[currentTrackIndex];
+  const currentProxyUrl =
+    currentTrack?.file?.url?.replace(
+      "https://akamd1.jw-cdn.org/",
+      "/api/audio/",
+    ) || "";
+  const displayImage = extractedCoverUrl || currentTrack?.trackImage?.url;
+
+  // Efeito para extrair a capa do MP3
+  useEffect(() => {
+    if (!currentProxyUrl) return;
+
+    let isMounted = true;
+    let objectUrl: string | null = null;
+
+    setExtractedCoverUrl(null);
+
+    const absoluteUrl = new URL(currentProxyUrl, window.location.origin).href;
+
+    jsmediatags.read(absoluteUrl, {
+      // biome-ignore lint/suspicious/noExplicitAny: library missing types
+      onSuccess: (tag: any) => {
+        if (!isMounted) return;
+        const picture = tag.tags.picture;
+        if (picture) {
+          const byteArray = new Uint8Array(picture.data);
+          const blob = new Blob([byteArray], { type: picture.format });
+          objectUrl = URL.createObjectURL(blob);
+          setExtractedCoverUrl(objectUrl);
+        }
+      },
+      onError: (error: unknown) => {
+        console.error("Erro ao ler tags ID3:", error);
+      },
+    });
+
+    return () => {
+      isMounted = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [currentProxyUrl]);
 
   // --- FUNÇÃO AUXILIAR PARA O VISUALIZADOR ---
   const initializeAudioContext = () => {
     if (audioContextRef.current || !audioRef.current) return;
     try {
-      const context = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
+      const context =
+        new // biome-ignore lint/suspicious/noExplicitAny: browser compatibility
+        (window.AudioContext || (window as any).webkitAudioContext)();
       const analyser = context.createAnalyser();
       analyser.fftSize = 256;
       const source = context.createMediaElementSource(audioRef.current);
@@ -97,7 +144,7 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
 
     console.log("URL SENDO USADA PELO PLAYER:", currentTrack.file.url);
 
-    const proxyUrl = `/api/proxy?url=${encodeURIComponent(currentTrack.file.url)}`;
+    const proxyUrl = currentProxyUrl;
 
     // 1. Se a música mudou, atualiza o 'src' e carrega o novo áudio.
     if (audio.src !== proxyUrl) {
@@ -302,7 +349,7 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
   };
 
   const formatTime = (time: number) => {
-    if (isNaN(time)) return "00:00";
+    if (Number.isNaN(time)) return "00:00";
     return new Date(time * 1000).toISOString().substr(14, 5);
   };
 
@@ -346,9 +393,9 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
           animate={{ opacity: 1, transition: { duration: 1 } }}
           exit={{ opacity: 0 }}
         >
-          {currentTrack?.trackImage?.url ? (
+          {displayImage ? (
             <Image
-              src={currentTrack.trackImage.url}
+              src={displayImage}
               alt="background"
               fill
               style={{ objectFit: "cover" }}
@@ -362,18 +409,18 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
       </AnimatePresence>
 
       <motion.div
-        className="w-full max-w-md"
+        className="w-full h-[100dvh] sm:h-auto sm:max-w-md"
         animate={{
           scale: isPlaylistOpen ? 0.95 : 1,
           y: isPlaylistOpen ? -20 : 0,
         }}
       >
-        <div className="rounded-2xl bg-black/40 backdrop-blur-2xl text-white shadow-2xl p-6 flex flex-col space-y-4 border border-white/10">
+        <div className="w-full h-full sm:h-auto rounded-none sm:rounded-2xl bg-black/40 backdrop-blur-2xl text-white shadow-none sm:shadow-2xl p-6 flex flex-col justify-center space-y-6 sm:space-y-4 border-none sm:border sm:border-white/10">
           <motion.div
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             style={{ perspective: "1000px" }}
-            className="relative w-full aspect-square rounded-xl overflow-hidden shadow-lg"
+            className="relative w-full max-w-[320px] sm:max-w-none mx-auto aspect-square rounded-xl overflow-hidden shadow-lg"
           >
             <AnimatePresence mode="wait">
               <motion.div
@@ -392,9 +439,9 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
                 }}
                 className="absolute inset-0"
               >
-                {currentTrack?.trackImage?.url ? (
+                {displayImage ? (
                   <Image
-                    src={currentTrack.trackImage.url}
+                    src={displayImage}
                     alt={currentTrack.title}
                     fill
                     style={{ objectFit: "cover" }}
@@ -430,6 +477,7 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
               value={currentTime}
               max={duration || 0}
               onChange={handleSeek}
+              aria-label="Progresso da música"
               className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer range-sm accent-purple-500"
             />
             <div className="flex justify-between text-xs text-gray-300 mt-1">
@@ -443,6 +491,8 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={handleToggleShuffle}
+              aria-label="Modo aleatório"
+              aria-pressed={isShuffled}
               className={`transition-colors ${isShuffled ? "text-purple-500" : "hover:text-white"}`}
             >
               <Shuffle size={22} />
@@ -451,6 +501,8 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={toggleRepeatMode}
+              aria-label="Modo de repetição"
+              aria-live="polite"
               className="transition-colors hover:text-white"
             >
               {repeatMode === "one" ? (
@@ -466,6 +518,8 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setIsPlaylistOpen(!isPlaylistOpen)}
+              aria-label="Fila de reprodução"
+              aria-expanded={isPlaylistOpen}
               className={`transition-colors ${isPlaylistOpen ? "text-purple-500" : "hover:text-white"}`}
             >
               <ListMusic size={22} />
@@ -477,6 +531,7 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={handlePrev}
+              aria-label="Música anterior"
               className="text-gray-300 hover:text-white transition-colors"
             >
               <SkipBack size={28} />
@@ -484,6 +539,7 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handlePlayPause}
+              aria-label={isPlaying ? "Pausar música" : "Tocar música"}
               className="bg-purple-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:bg-purple-500 transition-all scale-100 hover:scale-105"
             >
               {isPlaying ? (
@@ -496,6 +552,7 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={handleNext}
+              aria-label="Próxima música"
               className="text-gray-300 hover:text-white transition-colors"
             >
               <SkipForward size={28} />
@@ -520,21 +577,27 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
                   placeholder="Buscar na fila..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  aria-label="Buscar na fila"
                   className="w-full bg-white/10 rounded-lg p-3 pl-10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                   size={20}
+                  aria-hidden="true"
                 />
               </div>
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsPlaylistOpen(!isPlaylistOpen)}
+                aria-label="Fechar fila de reprodução"
                 className={`transition-colors pb-4 ${isPlaylistOpen ? "text-purple-500" : "hover:text-white"}`}
               >
                 <X size={32} />
               </motion.button>
+            </div>
+            <div className="text-xs text-gray-500 mb-2 px-1 text-right">
+              {filteredPlaylist.length} {filteredPlaylist.length === 1 ? "arquivo disponível" : "arquivos disponíveis"}
             </div>
             <ul className="overflow-y-auto space-y-2">
               {filteredPlaylist.map((track, index) => (

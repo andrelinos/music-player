@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import puppeteer, { type Browser } from "puppeteer";
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   let browser: Browser | null = null;
   console.log("Iniciando extração de vídeos...");
 
