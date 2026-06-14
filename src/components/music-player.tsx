@@ -145,10 +145,11 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
     console.log("URL SENDO USADA PELO PLAYER:", currentTrack.file.url);
 
     const proxyUrl = currentProxyUrl;
+    const absoluteProxyUrl = new URL(proxyUrl, window.location.origin).href;
 
     // 1. Se a música mudou, atualiza o 'src' e carrega o novo áudio.
-    if (audio.src !== proxyUrl) {
-      audio.src = proxyUrl;
+    if (audio.src !== absoluteProxyUrl) {
+      audio.src = absoluteProxyUrl;
       audio.load();
     }
 
