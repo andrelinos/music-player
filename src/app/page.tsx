@@ -38,11 +38,9 @@ export default async function Home() {
   const musicData = await getMusics();
 
   return (
-    <main className="font-sans grid items-center justify-items-center min-h-screen p-0 sm:p-8 bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+    <main className="font-sans flex flex-col items-center justify-center min-h-screen p-0 sm:p-8 bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 overflow-x-hidden w-full">
       {musicData && musicData.length > 0 ? (
-        <>
-          <MusicPlayer playlist={musicData} />
-        </>
+        <MusicPlayer playlist={musicData} />
       ) : (
         <div className="text-white text-center bg-red-500/50 p-4 rounded-lg">
           <h1 className="text-2xl font-bold">Nenhuma música encontrada</h1>
