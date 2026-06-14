@@ -178,40 +178,28 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
 
   // --- EFEITOS SECUNDÁRIOS ---
 
-  // Efeito para carregar e salvar no localStorage (consolidado)
+  // Efeito para carregar o volume e inicializar a playlist aleatória no início
   useEffect(() => {
-    const savedTrackIndex = localStorage.getItem("lastTrackIndex");
     const savedVolume = localStorage.getItem("volume");
-    if (
-      savedTrackIndex &&
-      playlist.length > 0 &&
-      Number(savedTrackIndex) < playlist.length
-    ) {
-      setCurrentTrackIndex(Number(savedTrackIndex));
-    }
     if (savedVolume) {
       setVolume(Number(savedVolume));
     }
-  }, [playlist]); // Executa apenas quando a playlist é carregada
+
+    if (playlist.length > 0) {
+      const shuffled = [...playlist];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      setShuffledPlaylist(shuffled);
+      setIsShuffled(true);
+      setCurrentTrackIndex(0);
+    }
+  }, [playlist]);
 
   useEffect(() => {
-    localStorage.setItem("lastTrackIndex", String(currentTrackIndex));
     localStorage.setItem("volume", String(volume));
-  }, [currentTrackIndex, volume]);
-
-  // Efeito para embaralhar a playlist
-  // useEffect(() => {
-  //   if (isShuffled) {
-  //     setShuffledPlaylist([...playlist].sort(() => Math.random() - 0.5));
-  //   } else {
-  //     const originalIndex = playlist.findIndex(
-  //       (track) => track.file.url === currentTrack?.file.url,
-  //     );
-  //     if (originalIndex !== -1) {
-  //       setCurrentTrackIndex(originalIndex);
-  //     }
-  //   }
-  // }, [isShuffled, playlist]);
+  }, [volume]);
 
   // Efeito para o loop de animação do visualizador
   useEffect(() => {
@@ -257,16 +245,24 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
     setIsShuffled(newShuffleState);
 
     if (newShuffleState) {
-      // Ao LIGAR o aleatório
-      const newShuffledList = [...playlist].sort(() => Math.random() - 0.5);
-      setShuffledPlaylist(newShuffledList);
-
-      // Começa a tocar a primeira música da nova lista aleatória
+      // Ao LIGAR o aleatório com Fisher-Yates
+      const shuffled = [...playlist];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      
+      if (currentlyPlayingUrl) {
+        const currentIdx = shuffled.findIndex((t) => t.file.url === currentlyPlayingUrl);
+        if (currentIdx !== -1) {
+          // Coloca a música atual como a primeira da nova lista aleatória
+          [shuffled[0], shuffled[currentIdx]] = [shuffled[currentIdx], shuffled[0]];
+        }
+      }
+      setShuffledPlaylist(shuffled);
       setCurrentTrackIndex(0);
-      setIsPlaying(true);
     } else {
-      // Ao DESLIGAR o aleatório
-      // Encontra a música que estava tocando na playlist original
+      // Ao DESLIGAR o aleatório, volta para a playlist original mantendo a música atual
       const originalIndex = playlist.findIndex(
         (track) => track.file.url === currentlyPlayingUrl,
       );
