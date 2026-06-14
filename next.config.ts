@@ -6,10 +6,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        // Intercepta qualquer requisição que comece com /api/audio/
-        source: '/api/audio/:path*',
-        // Redireciona para a CDN original
-        destination: 'https://akamd1.jw-cdn.org/:path*',
+        // Intercepta qualquer requisição de áudio com o subdomínio dinâmico
+        source: '/api/audio/:cdn_host/:path*',
+        // Redireciona para a CDN original correta
+        destination: 'https://:cdn_host.jw-cdn.org/:path*',
       },
     ]
   },

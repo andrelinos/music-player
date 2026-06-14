@@ -74,8 +74,8 @@ export default function MusicPlayer({ playlist }: MusicPlayerProps) {
   const currentTrack = activePlaylist?.[currentTrackIndex];
   const currentProxyUrl =
     currentTrack?.file?.url?.replace(
-      "https://akamd1.jw-cdn.org/",
-      "/api/audio/",
+      /^https?:\/\/([^.]+)\.jw-cdn\.org\//,
+      "/api/audio/$1/",
     ) || "";
   const displayImage = extractedCoverUrl || currentTrack?.trackImage?.url;
 
